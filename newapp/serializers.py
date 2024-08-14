@@ -3,6 +3,14 @@ from rest_framework import serializers
 from .models import Book, Publisher  # Импортируйте вашу модель
 from .validators import validate_title_length
 
+from .models import Genre
+
+
+class GenreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Genre
+        fields = '__all__'
+
 
 class PublisherSerializer(serializers.ModelSerializer):
     class Meta:
@@ -18,19 +26,20 @@ class BookDetailSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-
 class BookListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = ['title', 'author']
 
 
-class BookCreateSerializer(serializers.ModelSerializer):
-    title = serializers.CharField(validators=[validate_title_length])
+class BookSerializer(serializers.ModelSerializer):
+    publisher = serializers.PrimaryKeyRelatedField(queryset=Publisher.objects.all())
+    genres = serializers.PrimaryKeyRelatedField(queryset=Genre.objects.all(), many=True)
 
     class Meta:
         model = Book
         fields = '__all__'
+
 
     # def validate_price(self, value):
     #     if value < 1:
