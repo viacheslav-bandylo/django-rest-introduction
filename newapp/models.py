@@ -23,4 +23,5 @@ class Book(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     discounted_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     is_bestseller = models.BooleanField(default=False)
-    genres = models.ManyToManyField(Genre, null=True, blank=True, related_name='books')  # Новое поле Many-to-Many
+    genres = models.ManyToManyField(Genre, related_name='books')
+    is_banned = models.BooleanField(default=False)  # Поле, указывающее на запрещенную книгу

@@ -33,12 +33,19 @@ class BookListSerializer(serializers.ModelSerializer):
 
 
 class BookSerializer(serializers.ModelSerializer):
-    publisher = serializers.PrimaryKeyRelatedField(queryset=Publisher.objects.all())
-    genres = serializers.PrimaryKeyRelatedField(queryset=Genre.objects.all(), many=True)
 
     class Meta:
         model = Book
         fields = '__all__'
+
+    def to_representation(self, instance):
+        # Использование параметра include_related из контекста
+        representation = super().to_representation(instance)
+        if self.context.get('include_related'):
+            representation['genres'] = [genre.name for genre in instance.genres.all()]
+        else:
+            representation.pop('genres', None)
+        return representation
 
 
     # def validate_price(self, value):
