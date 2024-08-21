@@ -1,20 +1,82 @@
-from django.db.models import Avg
-from rest_framework.decorators import api_view
+from django.db.models import Avg, Count
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.decorators import api_view, action
 from rest_framework.exceptions import NotFound
 from rest_framework.generics import GenericAPIView, ListCreateAPIView, RetrieveUpdateDestroyAPIView, ListAPIView
 from .serializers import *
 from rest_framework.views import APIView
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.pagination import PageNumberPagination, LimitOffsetPagination, CursorPagination
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, filters
 from .models import Book
 from .serializers import BookSerializer
+from rest_framework import mixins, viewsets
+from .models import Genre
+from .serializers import GenreSerializer
 
 
-# Представление для списка и создания объектов
-class BookListCreateView(ListCreateAPIView):
+@api_view(['GET'])
+def books_by_date_view(request, year, month, day):
+    books = Book.objects.filter(published_date__year=year, published_date__month=month, published_date__day=day)
+    serializer = BookSerializer(books, many=True)
+    return Response({'date': f"{year}-{month}-{day}", 'books': serializer.data})
+
+
+class GenreViewSet(viewsets.ModelViewSet):
+    queryset = Genre.objects.all()
+    serializer_class = GenreSerializer
+
+    @action(detail=False, methods=['get'])
+    def statistic(self, request):
+        genres_with_book_counts = Genre.objects.annotate(book_count=Count('books'))
+        data = [
+            {
+                "id": genre.id,
+                "genre": genre.name,
+                "book_count": genre.book_count
+            }
+            for genre in genres_with_book_counts
+        ]
+        return Response(data)
+
+
+class GenreListRetrieveUpdateViewSet(mixins.UpdateModelMixin, mixins.RetrieveModelMixin,
+                                     mixins.ListModelMixin, viewsets.GenericViewSet):
+    queryset = Genre.objects.all()
+    serializer_class = GenreSerializer
+
+
+class GenreReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Genre.objects.all()
+    serializer_class = GenreSerializer
+
+
+class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.all()
     serializer_class = BookSerializer
+
+
+class BookCursorPagination(CursorPagination):
+    page_size = 3
+    ordering = 'price'  # Поле для курсора
+
+
+# class BookPagination(PageNumberPagination):
+#     page_size = 3  # Количество элементов на странице
+#     page_size_query_param = 'page_size'
+#     max_page_size = 100
+
+
+class BookListCreateView(ListAPIView):
+    queryset = Book.objects.all()
+    serializer_class = BookSerializer
+    # pagination_class = BookPagination
+    # pagination_class = LimitOffsetPagination
+    # pagination_class = BookCursorPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['author', 'publisher', 'is_bestseller']  # Поля для фильтрации
+    search_fields = ['title', 'author']  # Поля для поиска
+    ordering_fields = ['published_date', 'price']  # Поля для сортировки
 
     # Добавление кастомной логики перед сохранением
     def create(self, request, *args, **kwargs):
@@ -159,7 +221,7 @@ class GenreDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
 #         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class BookListView(APIView, PageNumberPagination):
+class BookListView(APIView):
     page_size = 2  # Значение по умолчанию
 
     def get(self, request):
