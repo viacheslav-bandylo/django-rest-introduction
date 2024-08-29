@@ -6,15 +6,16 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.decorators import api_view, action
 from rest_framework.exceptions import NotFound
 from rest_framework.generics import GenericAPIView, ListCreateAPIView, RetrieveUpdateDestroyAPIView, ListAPIView
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly, \
+    DjangoModelPermissions
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from .permissions import *
 from .serializers import *
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination, LimitOffsetPagination, CursorPagination
 from rest_framework.response import Response
-from rest_framework import status, filters
+from rest_framework import status, filters, generics
 from .models import Book
 from .serializers import BookSerializer
 from rest_framework import mixins, viewsets
@@ -147,6 +148,7 @@ def books_by_date_view(request, year, month, day):
 class GenreViewSet(viewsets.ModelViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
+    permission_classes = [DjangoModelPermissions, CanGetStatisticPermission]
 
     @action(detail=False, methods=['get'])
     def statistic(self, request):
@@ -173,9 +175,21 @@ class GenreReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = GenreSerializer
 
 
+class UserBookListView(ListAPIView):
+    serializer_class = BookSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Book.objects.filter(owner=self.request.user)
+
+
 class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.all()
     serializer_class = BookSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 
 class BookCursorPagination(CursorPagination):
@@ -236,6 +250,7 @@ class ExpensiveBooksView(ListAPIView):
 class BookDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
     queryset = Book.objects.all()
     serializer_class = BookSerializer
+    permission_classes = [IsWorkHour]
 
     # Переопределение метода для добавления кастомной логики
     def retrieve(self, request, *args, **kwargs):
@@ -271,18 +286,18 @@ class BookDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
         print(f"Book deleted: {instance}")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    def get_object(self):
-        # Получение параметра pk из URL
-        pk = self.kwargs.get('pk')
-
-        # Попытка найти объект по pk, исключая запрещенные
-        try:
-            book = self.queryset.get(pk=pk, is_banned=False)
-        except Book.DoesNotExist:
-            # Обработка ошибки, если объект не найден или запрещен
-            raise NotFound(detail=f"Book with id '{pk}' not found or is banned.")
-
-        return book
+    # def get_object(self):
+    #     # Получение параметра pk из URL
+    #     pk = self.kwargs.get('pk')
+    #
+    #     # Попытка найти объект по pk, исключая запрещенные
+    #     try:
+    #         book = self.queryset.get(pk=pk, is_banned=False)
+    #     except Book.DoesNotExist:
+    #         # Обработка ошибки, если объект не найден или запрещен
+    #         raise NotFound(detail=f"Book with id '{pk}' not found or is banned.")
+    #
+    #     return book
 
 
 class GenreListCreateView(ListCreateAPIView):

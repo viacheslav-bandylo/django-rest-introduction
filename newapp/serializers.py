@@ -56,6 +56,7 @@ class BookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = '__all__'
+        read_only_fields = ['owner']
 
     def to_representation(self, instance):
         # Использование параметра include_related из контекста

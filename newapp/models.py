@@ -1,4 +1,5 @@
 from django.db import models
+from rest_framework.authtoken.admin import User
 
 from newapp.managers import SoftDeleteManager
 
@@ -8,6 +9,11 @@ class Genre(models.Model):
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        permissions = [
+            ("can_get_statistic", "Can get genres statistic"),
+        ]
 
 
 class Publisher(models.Model):
@@ -28,6 +34,8 @@ class Book(models.Model):
     genres = models.ManyToManyField(Genre, related_name='books')
     is_banned = models.BooleanField(default=False)  # Поле, указывающее на запрещенную книгу
     is_deleted = models.BooleanField(default=False)  # Поле для мягкого удаления
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='books', null=True, blank=True)
+    updated_at = models.DateTimeField(null=True, blank=True)
 
     objects = SoftDeleteManager()
 
